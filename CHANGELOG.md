@@ -8,6 +8,32 @@
 
 * Your contribution here.
 
+### 0.28.0 (February 3, 2018)
+
+#### Features
+
+* [#622](https://github.com/ruby-grape/grape-swagger/pull/622): Add support for 'brackets' collection format - [@korstiaan](https://github.com/korstiaan).
+
+#### Fixes
+
+* [#631](https://github.com/ruby-grape/grape-swagger/pull/631): Fix order of mounts with overrides - [@adie](https://github.com/adie).
+* [#267](https://github.com/ruby-grape/grape-swagger/pull/634): Fix mounting APIs in route_param namespaces - [@milgner](https://github.com/milgner), [@wojciechka](https://github.com/wojciechka).
+* [#642](https://github.com/ruby-grape/grape-swagger/pull/642): Fix examples link in readme - [@iBublik](https://github.com/iBublik).
+* [#641](https://github.com/ruby-grape/grape-swagger/pull/641): Exclude default success code if http_codes define one already - [@anakinj](https://github.com/anakinj).
+* [#651](https://github.com/ruby-grape/grape-swagger/pull/651): Apply `values` and `default` of array params to its items - [@yewton](https://github.com/yewton).
+* [#654](https://github.com/ruby-grape/grape-swagger/pull/654): Allow setting the consumes for PATCH methods - [@anakinj](https://github.com/anakinj).
+* [#656](https://github.com/ruby-grape/grape-swagger/pull/656): Fix `description` field may be null - [@soranoba](https://github.com/soranoba).
+
+### 0.27.3 (July 11, 2017)
+
+#### Features
+
+* [#613](https://github.com/ruby-grape/grape-swagger/pull/613): Fix Proc with arity one in param values - [@timothysu](https://github.com/timothysu).
+
+#### Fixes
+
+* [#616](https://github.com/ruby-grape/grape-swagger/pull/616): Fix swagger to show root path ([#605](https://github.com/ruby-grape/grape-swagger/issue/605)) - [@NightWolf007](https://github.com/NightWolf007).
+
 ### 0.27.2 (May 11, 2017)
 
 #### Features

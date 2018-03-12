@@ -22,8 +22,8 @@ module GrapeSwagger
           document_description(settings)
           document_type_and_format(settings, data_type)
           document_array_param(value_type, definitions) if value_type[:is_array]
-          document_default_value(settings)
-          document_range_values(settings)
+          document_default_value(settings) unless value_type[:is_array]
+          document_range_values(settings) unless value_type[:is_array]
           document_required(settings)
 
           @parsed_param
@@ -79,6 +79,12 @@ module GrapeSwagger
           end
           array_items[:format] = @parsed_param.delete(:format) if @parsed_param[:format]
 
+          values = value_type[:values] || nil
+          enum_or_range_values = parse_enum_or_range_values(values)
+          array_items.merge!(enum_or_range_values) if enum_or_range_values
+
+          array_items[:default] = value_type[:default] if value_type[:default].present?
+
           @parsed_param[:in] = param_type || 'formData'
           @parsed_param[:items] = array_items
           @parsed_param[:type] = 'array'
@@ -101,7 +107,7 @@ module GrapeSwagger
         def parse_enum_or_range_values(values)
           case values
           when Proc
-            parse_enum_or_range_values(values.call)
+            parse_enum_or_range_values(values.call) if values.parameters.empty?
           when Range
             parse_range_values(values) if values.first.is_a?(Integer)
           else

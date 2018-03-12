@@ -77,7 +77,7 @@ module Grape
     def path_and_definition_objects(namespace_routes, options)
       @paths = {}
       @definitions = {}
-      namespace_routes.keys.each do |key|
+      namespace_routes.each_key do |key|
         routes = namespace_routes[key]
         path_item(routes, options)
       end
@@ -143,6 +143,7 @@ module Grape
     def description_object(route)
       description = route.description if route.description.present?
       description = route.options[:detail] if route.options.key?(:detail)
+      description ||= ''
 
       description
     end
@@ -161,14 +162,11 @@ module Grape
       route_mime_types.present? ? route_mime_types : mime_types
     end
 
-    def consumes_object(route, format)
-      method = route.request_method.downcase.to_sym
-      if route.settings[:description] && route.settings[:description][:consumes]
-        format = route.settings[:description][:consumes]
-      end
-      mime_types = GrapeSwagger::DocMethods::ProducesConsumes.call(format) if %i[post put].include?(method)
+    SUPPORTS_CONSUMES = %i[post put patch].freeze
 
-      mime_types
+    def consumes_object(route, format)
+      return unless SUPPORTS_CONSUMES.include?(route.request_method.downcase.to_sym)
+      GrapeSwagger::DocMethods::ProducesConsumes.call(route.settings.dig(:description, :consumes) || format)
     end
 
     def params_object(route, path)
@@ -191,12 +189,11 @@ module Grape
     end
 
     def response_object(route)
-      codes = (route.http_codes || route.options[:failure] || [])
-
-      codes = apply_success_codes(route) + codes
+      codes = http_codes_from_route(route)
       codes.map! { |x| x.is_a?(Array) ? { code: x[0], message: x[1], model: x[2] } : x }
 
       codes.each_with_object({}) do |value, memo|
+        value[:message] ||= ''
         memo[value[:code]] = { description: value[:message] }
         next build_file_response(memo[value[:code]]) if file_response?(value[:model])
 
@@ -222,7 +219,15 @@ module Grape
       end
     end
 
-    def apply_success_codes(route)
+    def http_codes_from_route(route)
+      if route.http_codes.is_a?(Array) && route.http_codes.any? { |code| code[:code].between?(200, 299) }
+        route.http_codes.clone
+      else
+        success_codes_from_route(route) + (route.http_codes || route.options[:failure] || [])
+      end
+    end
+
+    def success_codes_from_route(route)
       default_code = GrapeSwagger::DocMethods::StatusCodes.get[route.request_method.downcase.to_sym]
       if @entity.is_a?(Hash)
         default_code[:code] = @entity[:code] if @entity[:code].present?
@@ -257,6 +262,7 @@ module Grape
       memo['schema'] = { type: 'file' }
     end
 
+    # rubocop:disable Style/IfUnlessModifier
     def partition_params(route)
       declared_params = route.settings[:declared_params] if route.settings[:declared_params].present?
       required = merge_params(route)
@@ -270,6 +276,7 @@ module Grape
 
       request_params.empty? ? required : request_params
     end
+    # rubocop:enable Style/IfUnlessModifier
 
     def merge_params(route)
       param_keys = route.params.keys
@@ -326,7 +333,7 @@ module Grape
       raise GrapeSwagger::Errors::UnregisteredParser, "No parser registered for #{model_name}." unless parser
 
       properties = parser.new(model, self).call
-      unless properties && properties.any?
+      unless properties&.any?
         raise GrapeSwagger::Errors::SwaggerSpec,
               "Empty model #{model_name}, swagger 2.0 doesn't support empty definitions."
       end

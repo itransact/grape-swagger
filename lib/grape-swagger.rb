@@ -29,11 +29,9 @@ module Grape
         version_for(options)
         options = { target_class: self }.merge(options)
         @target_class = options[:target_class]
-        auth_wrapper = options[:endpoint_auth_wrapper]
+        auth_wrapper = options[:endpoint_auth_wrapper] || Class.new
 
-        if auth_wrapper && auth_wrapper.method_defined?(:before) && !middleware.flatten.include?(auth_wrapper)
-          use auth_wrapper
-        end
+        use auth_wrapper if auth_wrapper.method_defined?(:before) && !middleware.flatten.include?(auth_wrapper)
 
         documentation_class.setup(options)
         mount(documentation_class)
@@ -69,10 +67,10 @@ module Grape
           route_match = route_match.match('\/([\w|-]*?)[\.\/\(]') || route_match.match('\/([\w|-]*)$')
           next unless route_match
           resource = route_match.captures.first
-          next if resource.empty?
+          resource = '/' if resource.empty?
           @target_class.combined_routes[resource] ||= []
           next if doc_klass.hide_documentation_path && route.path.match(/#{doc_klass.mount_path}($|\/|\(\.)/)
-          @target_class.combined_routes[resource] << route
+          @target_class.combined_routes[resource].unshift route
         end
       end
 
@@ -90,16 +88,24 @@ module Grape
         end
       end
 
+      def determine_namespaced_routes(name, parent_route)
+        if parent_route.nil?
+          @target_class.combined_routes.values.flatten
+        else
+          parent_route.reject do |route|
+            !route_path_start_with?(route, name) || !route_instance_variable_equals?(route, name)
+          end
+        end
+      end
+
       def combine_namespace_routes(namespaces)
         # iterate over each single namespace
-        namespaces.each do |name, _|
+        namespaces.each_key do |name, _|
           # get the parent route for the namespace
           parent_route_name = extract_parent_route(name)
           parent_route = @target_class.combined_routes[parent_route_name]
           # fetch all routes that are within the current namespace
-          namespace_routes = parent_route.reject do |route|
-            !route_path_start_with?(route, name) || !route_instance_variable_equals?(route, name)
-          end
+          namespace_routes = determine_namespaced_routes(name, parent_route)
 
           # default case when not explicitly specified or nested == true
           standalone_namespaces = namespaces.reject do |_, ns|
@@ -118,11 +124,15 @@ module Grape
             @target_class.combined_namespace_routes[parent_route_name] = [] unless parent_route
             @target_class.combined_namespace_routes[parent_route_name].push(*namespace_routes)
           end
+          # rubocop:enable Style/Next
         end
       end
 
       def extract_parent_route(name)
-        name.match(%r{^/?([^/]*).*$})[1]
+        route_name = name.match(%r{^/?([^/]*).*$})[1]
+        return route_name unless route_name.include? ':'
+        matches = name.match(/\/[a-z]+/)
+        matches.nil? ? route_name : matches[0].delete('/')
       end
 
       def route_instance_variable(route)
